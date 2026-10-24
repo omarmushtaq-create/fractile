@@ -1,5 +1,6 @@
 import fractalRender
 
+# Define a dictionary mapping user input to fractal names. This allows for easy selection of fractals based on user input.
 FRACTALS = {
     "1": "Mandel Brot",
     "2": "Barnsley Fern",
@@ -23,7 +24,7 @@ def ask_iterations():
             return int(text)
         print("Please enter a whole number of at least 1.")
 
-
+# Main entry point for the program.  This is where we handle user input and call the fractal rendering function.
 if __name__ == "__main__":
     # Keep input handling in this file and delegate rendering to fractalRender.
     choice = input(
@@ -33,4 +34,5 @@ if __name__ == "__main__":
     if choice in FRACTALS:
         fractalRender.render_fractal(FRACTALS[choice], ask_iterations())
     else:
+        #Print an error message if the user input is invalid
         print("Invalid input. Please enter a valid option.")
