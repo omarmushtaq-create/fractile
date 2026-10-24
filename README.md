@@ -1,4 +1,4 @@
-# Fractile
+# Fractile Fusion
 
 An interactive fractal viewer written in Python. Pick a fractal, then zoom and pan around it. The image is recomputed for whatever part you are looking at.
 
@@ -97,6 +97,12 @@ This fails immediately if no prebuilt package exists, instead of trying to build
 **Pylance or VS Code says `numba` could not be resolved.** Select the interpreter from your virtual environment (Command Palette, then "Python: Select Interpreter").
 
 **The first run is slow.** Numba compiles the fractal code the first time it runs. The compiled result is cached, so later launches start quickly.
+
+
+# Demo
+
+For a easy to acess demo i created a website at https://omarmushtaq-create.github.io/fractile/.
+I just translated most of the code into JavaScript to make this work, but it might be a bit slower.
 
 ## Limitations
 
