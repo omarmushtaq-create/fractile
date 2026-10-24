@@ -8,6 +8,10 @@ import fractals
 RENDER_SCALE = 1.0
 # Wait this long after the last zoom/pan change before recomputing.
 REFRESH_DELAY_MS = 150
+# While zooming, draw a coarse preview first (this fraction of RENDER_SCALE),
+# then the full-resolution image FULL_DELAY_MS later.
+PREVIEW_SCALE = 0.25
+FULL_DELAY_MS = 30
 # Mouse-wheel zoom: each notch scales the view by this factor.
 SCROLL_ZOOM = 0.8
 
@@ -47,13 +51,13 @@ def render_fractal(fractal_type, max_itera):
     axes.set_xlim(initial_bounds[:2])
     axes.set_ylim(initial_bounds[2:])
 
-    def generate_image(bounds):
+    def generate_image(bounds, scale):
         # Size the grid to the axes actually on screen (not the whole canvas),
         # so no pixels are computed that are never shown.
         axes.apply_aspect()
         box = axes.get_window_extent()
-        width = max(int(box.width * RENDER_SCALE), 1)
-        height = max(int(box.height * RENDER_SCALE), 1)
+        width = max(int(box.width * scale), 1)
+        height = max(int(box.height * scale), 1)
 
         xmin, xmax, ymin, ymax = bounds
         x = np.linspace(xmin, xmax, width)
@@ -63,10 +67,10 @@ def render_fractal(fractal_type, max_itera):
 
     updating = False
 
-    def refresh():
+    def render(scale):
         nonlocal updating
         bounds = (*axes.get_xlim(), *axes.get_ylim())
-        data = generate_image(bounds)
+        data = generate_image(bounds, scale)
         # set_extent can touch the axes limits; ignore the events it fires.
         updating = True
         try:
@@ -79,17 +83,29 @@ def render_fractal(fractal_type, max_itera):
             updating = False
         figure.canvas.draw_idle()
 
-    # One-shot debounce timer: any burst of zoom/pan/resize events results in
-    # a single recompute after things go quiet.
-    refresh_timer = figure.canvas.new_timer(interval=REFRESH_DELAY_MS)
-    refresh_timer.single_shot = True
-    refresh_timer.add_callback(refresh)
+    def render_preview():
+        render(RENDER_SCALE * PREVIEW_SCALE)
+        # Let the GUI paint the preview before the full render blocks it.
+        full_timer.start()
+
+    def render_full():
+        render(RENDER_SCALE)
+
+    # One-shot timers: a burst of zoom/pan/resize events gives one coarse
+    # preview once things go quiet, followed by one full-resolution render.
+    preview_timer = figure.canvas.new_timer(interval=REFRESH_DELAY_MS)
+    preview_timer.single_shot = True
+    preview_timer.add_callback(render_preview)
+    full_timer = figure.canvas.new_timer(interval=FULL_DELAY_MS)
+    full_timer.single_shot = True
+    full_timer.add_callback(render_full)
 
     def schedule_refresh(*_args):
         if updating:
             return
-        refresh_timer.stop()
-        refresh_timer.start()
+        preview_timer.stop()
+        full_timer.stop()
+        preview_timer.start()
 
     def on_scroll(event):
         if event.inaxes is not axes or event.xdata is None:
@@ -103,7 +119,7 @@ def render_fractal(fractal_type, max_itera):
                       event.ydata + (y1 - event.ydata) * factor)
         figure.canvas.draw_idle()
 
-    refresh()  # initial image, before the callbacks are connected
+    render_full()  # initial image, before the callbacks are connected
     axes.callbacks.connect("xlim_changed", schedule_refresh)
     axes.callbacks.connect("ylim_changed", schedule_refresh)
     figure.canvas.mpl_connect("resize_event", schedule_refresh)

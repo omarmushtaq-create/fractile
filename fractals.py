@@ -1,5 +1,19 @@
 import numpy as np
 
+try:
+    from numba import njit, prange
+    HAVE_NUMBA = True
+except Exception as error:  # Falls back to the NumPy implementations below.
+    # Numba can fail to import for reasons other than ImportError (for
+    # example a NumPy version mismatch), so catch everything and say why.
+    print(f"Numba unavailable ({type(error).__name__}: {error}); using NumPy fallback.")
+    HAVE_NUMBA = False
+
+    def njit(*args, **kwargs):
+        return lambda func: func
+
+    prange = range
+
 
 def _iterate(z, c, step, is_done, max_iter, fill=0):
     """Iterate ``z = step(z, c)`` but only on points that are still active.
@@ -28,7 +42,7 @@ def _iterate(z, c, step, is_done, max_iter, fill=0):
     return out
 
 
-def mandelBrot(c, max_iter):
+def _mandelbrot_np(c, max_iter):
     c = np.asarray(c, dtype=np.complex128)
     x, y = c.real, c.imag
 
@@ -36,8 +50,7 @@ def mandelBrot(c, max_iter):
     # skip them entirely.  This removes a large share of the work when the
     # whole set is in view.
     q = (x - 0.25) ** 2 + y * y
-    inside = (q * (q + (x - 0.25)) <= 0.25 * y *
-              y) | ((x + 1) ** 2 + y * y <= 0.0625)
+    inside = (q * (q + (x - 0.25)) <= 0.25 * y * y) | ((x + 1) ** 2 + y * y <= 0.0625)
 
     flat_c = c.ravel()
     todo = ~inside.ravel()
@@ -53,7 +66,7 @@ def mandelBrot(c, max_iter):
     return out.reshape(c.shape)
 
 
-def burningShip(c, max_iter):
+def _burning_ship_np(c, max_iter):
     c = np.asarray(c, dtype=np.complex128)
 
     def step(z, c):
@@ -71,7 +84,7 @@ def burningShip(c, max_iter):
     return out.reshape(c.shape)
 
 
-def newtonsFractal(c, max_iter, tol=1e-6):
+def _newton_np(c, max_iter, tol=1e-6):
     c = np.asarray(c, dtype=np.complex128)
     tol2 = tol * tol
 
@@ -93,7 +106,7 @@ def newtonsFractal(c, max_iter, tol=1e-6):
     return out.reshape(c.shape)
 
 
-def novaFractal(c, max_iter, R=1.0, tol=1e-6):
+def _nova_np(c, max_iter, R=1.0, tol=1e-6):
     c = np.asarray(c, dtype=np.complex128)
     tol2 = tol * tol
 
@@ -113,6 +126,138 @@ def novaFractal(c, max_iter, R=1.0, tol=1e-6):
         fill=max_iter,
     )
     return out.reshape(c.shape)
+
+
+# ---------------------------------------------------------------------------
+# Numba kernels: one compiled loop per pixel, rows run in parallel, and each
+# pixel stops the moment it escapes or converges.  fastmath is left off for
+# Newton/Nova because they rely on NaN/inf checks.
+# ---------------------------------------------------------------------------
+@njit(parallel=True, fastmath=True, cache=True)
+def _mandelbrot_nb(c, max_iter):
+    h, w = c.shape
+    out = np.zeros((h, w), dtype=np.int32)
+    for r in prange(h):
+        for k in range(w):
+            cr = c[r, k].real
+            ci = c[r, k].imag
+            # Skip the main cardioid and period-2 bulb: they never escape.
+            q = (cr - 0.25) ** 2 + ci * ci
+            if q * (q + (cr - 0.25)) <= 0.25 * ci * ci or (cr + 1.0) ** 2 + ci * ci <= 0.0625:
+                continue
+            zr = 0.0
+            zi = 0.0
+            for i in range(1, max_iter + 1):
+                zr2 = zr * zr
+                zi2 = zi * zi
+                zi = 2.0 * zr * zi + ci
+                zr = zr2 - zi2 + cr
+                if zr * zr + zi * zi > 4.0:
+                    out[r, k] = i
+                    break
+    return out
+
+
+@njit(parallel=True, fastmath=True, cache=True)
+def _burning_ship_nb(c, max_iter):
+    h, w = c.shape
+    out = np.zeros((h, w), dtype=np.int32)
+    for r in prange(h):
+        for k in range(w):
+            cr = c[r, k].real
+            ci = c[r, k].imag
+            zr = 0.0
+            zi = 0.0
+            for i in range(1, max_iter + 1):
+                x = abs(zr)
+                y = abs(zi)
+                zr = x * x - y * y + cr
+                zi = 2.0 * x * y + ci
+                if zr * zr + zi * zi > 4.0:
+                    out[r, k] = i
+                    break
+    return out
+
+
+@njit(parallel=True, cache=True)
+def _newton_nb(c, max_iter, tol2):
+    h, w = c.shape
+    out = np.full((h, w), max_iter, dtype=np.int32)
+    for r in prange(h):
+        for k in range(w):
+            zr = c[r, k].real
+            zi = c[r, k].imag
+            for i in range(1, max_iter + 1):
+                a = zr * zr - zi * zi          # z^2 = a + bi
+                b = 2.0 * zr * zi
+                d = a * a + b * b
+                if d == 0.0:                   # landed on 0: update undefined
+                    out[r, k] = i
+                    break
+                # z - (z^3 - 1) / (3 z^2) == (2z + 1/z^2) / 3
+                nzr = (2.0 * zr + a / d) / 3.0
+                nzi = (2.0 * zi - b / d) / 3.0
+                dr = nzr - zr
+                di = nzi - zi
+                zr = nzr
+                zi = nzi
+                if dr * dr + di * di < tol2:
+                    out[r, k] = i
+                    break
+    return out
+
+
+@njit(parallel=True, cache=True)
+def _nova_nb(c, max_iter, R, tol2):
+    h, w = c.shape
+    out = np.full((h, w), max_iter, dtype=np.int32)
+    for r in prange(h):
+        for k in range(w):
+            cr = c[r, k].real
+            ci = c[r, k].imag
+            zr = 1.0                           # Nova starts at z0 = 1
+            zi = 0.0
+            for i in range(1, max_iter + 1):
+                a = zr * zr - zi * zi
+                b = 2.0 * zr * zi
+                d = a * a + b * b
+                if d == 0.0:
+                    out[r, k] = i
+                    break
+                nzr = zr - R * (zr - a / d) / 3.0 + cr
+                nzi = zi - R * (zi + b / d) / 3.0 + ci
+                dr = nzr - zr
+                di = nzi - zi
+                zr = nzr
+                zi = nzi
+                if dr * dr + di * di < tol2 or zr * zr + zi * zi > 1e12:
+                    out[r, k] = i
+                    break
+    return out
+
+
+def mandelBrot(c, max_iter):
+    if HAVE_NUMBA:
+        return _mandelbrot_nb(np.ascontiguousarray(c, dtype=np.complex128), int(max_iter))
+    return _mandelbrot_np(c, max_iter)
+
+
+def burningShip(c, max_iter):
+    if HAVE_NUMBA:
+        return _burning_ship_nb(np.ascontiguousarray(c, dtype=np.complex128), int(max_iter))
+    return _burning_ship_np(c, max_iter)
+
+
+def newtonsFractal(c, max_iter, tol=1e-6):
+    if HAVE_NUMBA:
+        return _newton_nb(np.ascontiguousarray(c, dtype=np.complex128), int(max_iter), tol * tol)
+    return _newton_np(c, max_iter, tol)
+
+
+def novaFractal(c, max_iter, R=1.0, tol=1e-6):
+    if HAVE_NUMBA:
+        return _nova_nb(np.ascontiguousarray(c, dtype=np.complex128), int(max_iter), float(R), tol * tol)
+    return _nova_np(c, max_iter, R, tol)
 
 
 def _ifs_image(step, shape, bounds, max_iter, chains=2000, burn_in=20, max_steps=3000):
@@ -146,10 +291,8 @@ def _ifs_image(step, shape, bounds, max_iter, chains=2000, burn_in=20, max_steps
         visible = (x >= xmin) & (x < xmax) & (y >= ymin) & (y < ymax)
         if not visible.any():
             continue
-        cols = np.minimum(
-            ((x[visible] - xmin) * scale_x).astype(np.intp), width - 1)
-        rows = np.minimum(
-            ((y[visible] - ymin) * scale_y).astype(np.intp), height - 1)
+        cols = np.minimum(((x[visible] - xmin) * scale_x).astype(np.intp), width - 1)
+        rows = np.minimum(((y[visible] - ymin) * scale_y).astype(np.intp), height - 1)
         chunks.append(rows * width + cols)
         collected += cols.size
         if collected >= target:

@@ -1,2 +1,7 @@
-numpy
-matplotlib
+numpy>=1.22
+matplotlib>=3.5
+ 
+# Optional: compiles the fractal loops for a large speedup.
+# Without it the program falls back to the slower NumPy code.
+numba>=0.59
+ 
