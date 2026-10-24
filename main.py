@@ -1,23 +1,36 @@
 import fractalRender
 
+FRACTALS = {
+    "1": "Mandel Brot",
+    "2": "Barnsley Fern",
+    "3": "Burning ship",
+    "4": "Newton's Fractal",
+    "5": "Nova Fractal",
+    "6": "Sierpinski Triangle",
+}
+
+DEFAULT_ITERATIONS = 100
+
+
+def ask_iterations():
+    # An empty input uses the default; anything else must be a positive integer.
+    while True:
+        text = input(
+            f"Enter the number of iterations (default is {DEFAULT_ITERATIONS}): ").strip()
+        if not text:
+            return DEFAULT_ITERATIONS
+        if text.isdigit() and int(text) >= 1:
+            return int(text)
+        print("Please enter a whole number of at least 1.")
+
+
 if __name__ == "__main__":
+    # Keep input handling in this file and delegate rendering to fractalRender.
+    choice = input(
+        "Enter the fractal type (Mandelbrot [1], Barnsley Fern [2], Burning ship [3], "
+        "Newton's Fractal [4], Nova Fractal [5], Sierpinski Triangle [6]): ").strip()
 
-    input_fractal = input(
-        "Enter the fractal type (Mandelbrot [1], Barnsley Fern [2], Burning ship [3], Newton's Fractal [4], Nova Fractal [5], Sierpinski Triangle [6]): ")
-
-    input_iterations = input("Enter the number of iterations (default is 100): ")
-    if input_fractal == "1":
-        fractalRender.render_fractal("Mandel Brot", int(input_iterations) if input_iterations else 100)
-    elif input_fractal == "2":
-        fractalRender.render_fractal("Barnsley Fern", int(
-            input_iterations) if input_iterations else 100)
-    elif input_fractal == "3":
-        fractalRender.render_fractal("Burning ship", int(input_iterations) if input_iterations else 100)
-    elif input_fractal == "4":
-        fractalRender.render_fractal("Newton's Fractal", int(input_iterations) if input_iterations else 100)
-    elif input_fractal == "5":
-        fractalRender.render_fractal("Nova Fractal", int(input_iterations) if input_iterations else 100)
-    elif input_fractal == "6":
-        fractalRender.render_fractal("Sierpinski Triangle", int(input_iterations) if input_iterations else 100)
+    if choice in FRACTALS:
+        fractalRender.render_fractal(FRACTALS[choice], ask_iterations())
     else:
         print("Invalid input. Please enter a valid option.")
