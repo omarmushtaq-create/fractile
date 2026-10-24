@@ -1,4 +1,4 @@
-# Fractile
+# Fractile Fusion
 
 An interactive fractal viewer written in Python. Pick a fractal, then zoom and pan around it. The image is recomputed for whatever part you are looking at.
 
