@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="style.css">
+<script rel="script" src="script.js" defer></script>
+<title>Fractile demo</title>
+</head>
+<body>
+<header>
+  <h1>Fractile</h1>
+  <p><i>This demo has less detail then the full python version.</i></p>
+  <label>Fractal <select id="type">
+    <option value="mandel">Mandelbrot</option>
+    <option value="fern">Barnsley Fern</option>
+    <option value="ship">Burning Ship</option>
+    <option value="newton">Newton’s Fractal</option>
+    <option value="nova">Nova Fractal</option>
+    <option value="sier">Sierpinski Triangle</option>
+  </select></label>
+  <label>Iterations <input id="iters" type="number" min="1" max="2000" value="100"></label>
+  <button id="reset">Reset view</button>
+  <span id="info"></span>
+</header>
+<main><canvas id="cv"></canvas></main>
+<footer>Scroll to zoom, drag to pan, double-click to reset.</footer>
+
+</body>
+</html>

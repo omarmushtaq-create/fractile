@@ -1,0 +1,18 @@
+  :root { --bg:#14121c; --fg:#ece9f5; --mut:#9a94b3; --pan:#221f2f; --acc:#8f7bff; color-scheme: dark; }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) { --bg:#f4f2fa; --fg:#1d1a2b; --mut:#6a6584; --pan:#e3dff2; --acc:#5a45e0; color-scheme: light; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.4 system-ui, sans-serif; display:flex; flex-direction:column; height:100vh; }
+  header { display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center; padding:10px 14px; background:var(--pan); }
+  h1 { font-size:17px; margin:0 8px 0 0; }
+  label { color:var(--mut); font-size:13px; }
+  select, input, button { font:inherit; color:var(--fg); background:var(--bg); border:1px solid var(--mut); border-radius:6px; padding:4px 8px; }
+  input { width:72px; }
+  button { cursor:pointer; background:var(--acc); border-color:var(--acc); color:#fff; }
+  #info { margin-left:auto; color:var(--mut); font-size:13px; }
+  main { flex:1; min-height:0; display:flex; align-items:center; justify-content:center; padding:8px; }
+  canvas { max-width:100%; max-height:100%; border-radius:8px; cursor:grab; touch-action:none; background:#000; }
+  canvas:active { cursor:grabbing; }
+  footer { padding:6px 14px 10px; color:var(--mut); font-size:12px; text-align:center; }
+  
