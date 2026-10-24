@@ -1,40 +1,23 @@
-import numpy as np
-import matplotlib.pyplot as plt
+import fractalRender
 
+if __name__ == "__main__":
 
-def mandelbrot(c, max_iter):
-    z = 0
-    n = np.zeros(c.shape, dtype=int)
-    mask = np.ones(c.shape, dtype=bool)
+    input_fractal = input(
+        "Enter the fractal type (Mandelbrot [1], Barnsley Fern [2], Burning ship [3], Newton's Fractal [4], Nova Fractal [5], Sierpinski Triangle [6]): ")
 
-    for i in range(max_iter):
-        # Apply the Mandelbrot formula: z = z^2 + c
-        z = z**2 + c
-        # Find points that escape to infinity
-        escaped = np.abs(z) > 2
-        # Record iteration number for escaped points
-        n[escaped & mask] = i
-        mask[escaped] = False
-
-    return n
-
-
-# Define the grid dimensions and resolution
-xmin, xmax, xnum = -2.0, 0.5, 1000
-ymin, ymax, ynum = -1.25, 1.25, 1000
-
-# Create a coordinate grid of complex numbers
-r1 = np.linspace(xmin, xmax, xnum)
-r2 = np.linspace(ymin, ymax, ynum)
-x, y = np.meshgrid(r1, r2)
-c = x + 1j * y
-
-# Generate the image matrix
-fractal_image = mandelbrot(c, max_iter=100)
-
-# Display the fractal using a color map
-plt.figure(figsize=(10, 10))
-plt.imshow(fractal_image, extent=(
-    xmin, xmax, ymin, ymax), cmap='twilight_shifted')
-plt.axis('off')
-plt.show()
+    input_iterations = input("Enter the number of iterations (default is 100): ")
+    if input_fractal == "1":
+        fractalRender.render_fractal("Mandel Brot", int(input_iterations) if input_iterations else 100)
+    elif input_fractal == "2":
+        fractalRender.render_fractal("Barnsley Fern", int(
+            input_iterations) if input_iterations else 100)
+    elif input_fractal == "3":
+        fractalRender.render_fractal("Burning ship", int(input_iterations) if input_iterations else 100)
+    elif input_fractal == "4":
+        fractalRender.render_fractal("Newton's Fractal", int(input_iterations) if input_iterations else 100)
+    elif input_fractal == "5":
+        fractalRender.render_fractal("Nova Fractal", int(input_iterations) if input_iterations else 100)
+    elif input_fractal == "6":
+        fractalRender.render_fractal("Sierpinski Triangle", int(input_iterations) if input_iterations else 100)
+    else:
+        print("Invalid input. Please enter a valid option.")
