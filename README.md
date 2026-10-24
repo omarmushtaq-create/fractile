@@ -98,6 +98,12 @@ This fails immediately if no prebuilt package exists, instead of trying to build
 
 **The first run is slow.** Numba compiles the fractal code the first time it runs. The compiled result is cached, so later launches start quickly.
 
+
+# Demo
+
+For a easy to acess demo i created a website at https://omarmushtaq-create.github.io/fractile/.
+I just translated most of the code into JavaScript to make this work, but it might be a bit slower.
+
 ## Limitations
 
 - Zooming deeper than about 1e-13 hits the limit of 64-bit floating point precision and the image turns blocky.
