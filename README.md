@@ -28,14 +28,17 @@ A browser demo (`index.html`) is also included. It has the original six fractals
 - **Sierpinski Carpet:** the square version of the Sierpinski Triangle.
 - **Dragon Curve:** the Heighway dragon, a space-filling curve made of two transformations.
 
-## Requirements
+
+## Compile from source
+
+### Requirements
 
 - Python 3.10 or newer (developed on Python 3.13)
 - numpy
 - matplotlib
 - numba (optional, but strongly recommended for speed)
 
-## Installation
+### Installation
 
 ```bash
 python3 -m venv .venv
@@ -45,7 +48,7 @@ pip install -r requirements.txt
 
 If Numba fails to install, the program still works. It prints a short message and uses the slower NumPy code. See Troubleshooting below.
 
-## Usage
+### Usage
 
 ```bash
 python main.py
