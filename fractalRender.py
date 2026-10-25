@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
 import numpy as np
-
 import fractals
 
 # 1.0 renders one fractal pixel per screen pixel. Lower it (e.g. 0.5) for a
