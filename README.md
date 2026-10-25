@@ -129,6 +129,13 @@ A few fractals use fixed constants, defined near the top of `fractals.py`. Chang
 pip install --only-binary=:all: numba
 ```
 
+You will also need to manualy install the rest of the packages
+
+```bash
+pip install numpy
+pip install mathplotlib
+```
+
 This fails immediately if no prebuilt package exists, instead of trying to build one. If it fails, the program still runs without Numba.
 
 **Pylance or VS Code says `numba` could not be resolved.** Select the interpreter from your virtual environment (Command Palette, then "Python: Select Interpreter").
