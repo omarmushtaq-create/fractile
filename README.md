@@ -34,7 +34,7 @@ A browser demo (`index.html`) is also included. It has the original six fractals
 2. Unzip the .zip and locate the main file
 3. Double click to run
 
-* If it doesn't run or shows up as a document you need to make it executable by running ```bash chmod +x main``` in the terminal
+* If it doesn't run or shows up as a document you need to make it executable by running ```chmod +x main``` in the terminal
 * If you are on a mac it will say that it cant run due to privacy issues. To fix this go to System Setting -> Privacy and Security scroll all the way to the bottom and click run anyway.
 
 
