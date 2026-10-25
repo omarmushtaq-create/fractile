@@ -1,6 +1,8 @@
-# Fractile Fusion
+# Fractile
 
-An interactive fractal viewer written in Python. Pick a fractal, then zoom and pan around it. The image is recomputed for whatever part you are looking at.
+An interactive fractal viewer written in Python with twelve fractals to explore. Pick one, then zoom and pan around it. The image is recomputed for whatever part you are looking at.
+
+A browser demo (`index.html`) is also included. It has the original six fractals only; the Python app has all twelve.
 
 ## Fractals
 
@@ -12,6 +14,19 @@ An interactive fractal viewer written in Python. Pick a fractal, then zoom and p
 | 4 | Newton's Fractal (z^3 - 1) | Convergence time |
 | 5 | Nova Fractal | Convergence time |
 | 6 | Sierpinski Triangle | Iterated function system |
+| 7 | Julia Set | Escape time |
+| 8 | Tricorn | Escape time |
+| 9 | Multibrot (z^3 + c) | Escape time |
+| 10 | Phoenix | Escape time |
+| 11 | Sierpinski Carpet | Iterated function system |
+| 12 | Dragon Curve | Iterated function system |
+
+- **Julia Set:** the partner of the Mandelbrot set. Every point of the Mandelbrot set corresponds to a different Julia shape. This one uses a fixed constant.
+- **Tricorn:** like the Mandelbrot set, but with the complex conjugate taken at each step, which gives three-fold symmetry.
+- **Multibrot:** the Mandelbrot formula with a cube instead of a square, giving a two-lobed shape.
+- **Phoenix:** a Julia-style fractal whose next value also depends on the one before it, giving flowing, feathered shapes.
+- **Sierpinski Carpet:** the square version of the Sierpinski Triangle.
+- **Dragon Curve:** the Heighway dragon, a space-filling curve made of two transformations.
 
 ## Requirements
 
@@ -38,13 +53,13 @@ python main.py
 
 You will be asked for two things:
 
-1. The fractal number (1 to 6).
+1. The fractal number (1 to 12). The menu lists them all.
 2. The number of iterations. Press Enter to use the default of 100.
 
 ### What "iterations" means
 
-- Mandelbrot, Burning Ship, Newton and Nova: the maximum number of iterations per pixel. Higher values show more detail near the edges of the set but take longer.
-- Barnsley Fern and Sierpinski Triangle: the number of points to plot, in thousands (100 means 100,000 points).
+- Mandelbrot, Burning Ship, Newton, Nova, Julia, Tricorn, Multibrot and Phoenix: the maximum number of iterations per pixel. Higher values show more detail near the edges of the set but take longer.
+- Barnsley Fern, Sierpinski Triangle, Sierpinski Carpet and Dragon Curve: the number of points to plot, in thousands (100 means 100,000 points).
 
 ### Controls
 
@@ -79,10 +94,20 @@ These constants are at the top of `fractalRender.py`:
 
 ## How it works
 
-- Escape-time fractals (Mandelbrot, Burning Ship) iterate each point of the visible region until it escapes, and colour it by how long that took.
+- Escape-time fractals (Mandelbrot, Burning Ship, Julia, Tricorn, Multibrot, Phoenix) iterate each point of the visible region until it escapes, and colour it by how long that took.
 - Newton and Nova colour each point by how many steps it takes for the iteration to settle.
-- The Fern and the Sierpinski Triangle are drawn by running many random chains of transformations and counting how many points land in each pixel.
+- The Fern, Sierpinski Triangle, Sierpinski Carpet and Dragon Curve are drawn by running many random chains of transformations and counting how many points land in each pixel.
 - On every zoom or pan, the visible region is recomputed so detail stays sharp.
+
+## Fractal parameters
+
+A few fractals use fixed constants, defined near the top of `fractals.py`. Change them and rerun to get different shapes:
+
+| Constant | Default | Used by |
+| --- | --- | --- |
+| `JULIA_C` | `-0.8 + 0.156j` | Julia Set. Try `-0.4 + 0.6j` or `0.285 + 0.01j`. |
+| `PHOENIX_P` | `0.5667` | Phoenix |
+| `PHOENIX_Q` | `-0.5` | Phoenix |
 
 ## Troubleshooting
 
@@ -98,13 +123,7 @@ This fails immediately if no prebuilt package exists, instead of trying to build
 
 **The first run is slow.** Numba compiles the fractal code the first time it runs. The compiled result is cached, so later launches start quickly.
 
-
-# Demo
-
-For a easy to acess demo i created a website at https://omarmushtaq-create.github.io/fractile/.
-I just translated most of the code into JavaScript to make this work, but it might be a bit slower.
-
 ## Limitations
 
 - Zooming deeper than about 1e-13 hits the limit of 64-bit floating point precision and the image turns blocky.
-- Very deep zooms on the Barnsley Fern can look sparse, because few random points land in a tiny window. Increasing the iteration count helps.
+- Very deep zooms on the point-based fractals (Barnsley Fern, Sierpinski Triangle and Carpet, Dragon Curve) can look sparse, because few random points land in a tiny window. Increasing the iteration count helps.

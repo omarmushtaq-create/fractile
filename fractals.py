@@ -6,13 +6,22 @@ try:
 except Exception as error:  # Falls back to the NumPy implementations below.
     # Numba can fail to import for reasons other than ImportError (for
     # example a NumPy version mismatch), so catch everything and say why.
-    print(f"Numba unavailable ({type(error).__name__}: {error}); using NumPy fallback.")
+    print(
+        f"Numba unavailable ({type(error).__name__}: {error}); using NumPy fallback.")
     HAVE_NUMBA = False
 
     def njit(*args, **kwargs):
         return lambda func: func
 
     prange = range
+
+# Parameters for the fractals that need a fixed constant. Change these to
+# explore different Julia and Phoenix shapes.
+JULIA_C = complex(-0.8, 0.156)
+PHOENIX_P = 0.5667
+PHOENIX_Q = -0.5
+# fixed at 3 (z^3 + c); the kernel is written for the cubic
+MULTIBROT_POWER = 3
 
 
 def _iterate(z, c, step, is_done, max_iter, fill=0):
@@ -50,7 +59,8 @@ def _mandelbrot_np(c, max_iter):
     # skip them entirely.  This removes a large share of the work when the
     # whole set is in view.
     q = (x - 0.25) ** 2 + y * y
-    inside = (q * (q + (x - 0.25)) <= 0.25 * y * y) | ((x + 1) ** 2 + y * y <= 0.0625)
+    inside = (q * (q + (x - 0.25)) <= 0.25 * y *
+              y) | ((x + 1) ** 2 + y * y <= 0.0625)
 
     flat_c = c.ravel()
     todo = ~inside.ravel()
@@ -260,6 +270,167 @@ def novaFractal(c, max_iter, R=1.0, tol=1e-6):
     return _nova_np(c, max_iter, R, tol)
 
 
+# ---------------------------------------------------------------------------
+# Additional escape-time fractals: NumPy fallbacks, Numba kernels, dispatchers.
+# ---------------------------------------------------------------------------
+def _escaped(old, new):
+    return new.real ** 2 + new.imag ** 2 > 4.0
+
+
+def _julia_np(c, max_iter):
+    c = np.asarray(c, dtype=np.complex128)
+    out = _iterate(c.ravel().copy(), np.full(c.size, JULIA_C, dtype=np.complex128),
+                   lambda z, k: z * z + k, _escaped, max_iter)
+    return out.reshape(c.shape)
+
+
+def _tricorn_np(c, max_iter):
+    c = np.asarray(c, dtype=np.complex128)
+    out = _iterate(np.zeros(c.size, dtype=np.complex128), c.ravel(),
+                   lambda z, k: np.conj(z) ** 2 + k, _escaped, max_iter)
+    return out.reshape(c.shape)
+
+
+def _multibrot_np(c, max_iter):
+    c = np.asarray(c, dtype=np.complex128)
+    out = _iterate(np.zeros(c.size, dtype=np.complex128), c.ravel(),
+                   lambda z, k: z * z * z + k, _escaped, max_iter)
+    return out.reshape(c.shape)
+
+
+def _phoenix_np(c, max_iter):
+    # Phoenix needs the previous value too, so it keeps its own active set.
+    c = np.asarray(c, dtype=np.complex128)
+    z = c.ravel().copy()
+    prev = np.zeros_like(z)
+    out = np.zeros(z.size, dtype=np.int32)
+    idx = np.arange(z.size)
+    with np.errstate(all="ignore"):
+        for i in range(1, max_iter + 1):
+            if idx.size == 0:
+                break
+            z_new = z * z + PHOENIX_P + PHOENIX_Q * prev
+            done = z_new.real ** 2 + z_new.imag ** 2 > 4.0
+            if done.any():
+                out[idx[done]] = i
+                alive = ~done
+                idx, prev, z = idx[alive], z[alive], z_new[alive]
+            else:
+                prev, z = z, z_new
+    return out.reshape(c.shape)
+
+
+@njit(parallel=True, fastmath=True, cache=True)
+def _julia_nb(c, max_iter, jr, ji):
+    h, w = c.shape
+    out = np.zeros((h, w), dtype=np.int32)
+    for r in prange(h):
+        for k in range(w):
+            zr = c[r, k].real
+            zi = c[r, k].imag
+            for i in range(1, max_iter + 1):
+                t = zr * zr - zi * zi + jr
+                zi = 2.0 * zr * zi + ji
+                zr = t
+                if zr * zr + zi * zi > 4.0:
+                    out[r, k] = i
+                    break
+    return out
+
+
+@njit(parallel=True, fastmath=True, cache=True)
+def _tricorn_nb(c, max_iter):
+    h, w = c.shape
+    out = np.zeros((h, w), dtype=np.int32)
+    for r in prange(h):
+        for k in range(w):
+            cr = c[r, k].real
+            ci = c[r, k].imag
+            zr = 0.0
+            zi = 0.0
+            for i in range(1, max_iter + 1):
+                t = zr * zr - zi * zi + cr
+                zi = -2.0 * zr * zi + ci   # conjugate before squaring
+                zr = t
+                if zr * zr + zi * zi > 4.0:
+                    out[r, k] = i
+                    break
+    return out
+
+
+@njit(parallel=True, fastmath=True, cache=True)
+def _multibrot_nb(c, max_iter):
+    h, w = c.shape
+    out = np.zeros((h, w), dtype=np.int32)
+    for r in prange(h):
+        for k in range(w):
+            cr = c[r, k].real
+            ci = c[r, k].imag
+            zr = 0.0
+            zi = 0.0
+            for i in range(1, max_iter + 1):
+                a = zr * zr - zi * zi          # z^2 = a + bi
+                b = 2.0 * zr * zi
+                t = a * zr - b * zi + cr       # z^3 + c
+                zi = a * zi + b * zr + ci
+                zr = t
+                if zr * zr + zi * zi > 4.0:
+                    out[r, k] = i
+                    break
+    return out
+
+
+@njit(parallel=True, fastmath=True, cache=True)
+def _phoenix_nb(c, max_iter, p, q):
+    h, w = c.shape
+    out = np.zeros((h, w), dtype=np.int32)
+    for r in prange(h):
+        for k in range(w):
+            zr = c[r, k].real
+            zi = c[r, k].imag
+            pr = 0.0
+            pi = 0.0
+            for i in range(1, max_iter + 1):
+                nr = zr * zr - zi * zi + p + q * pr
+                ni = 2.0 * zr * zi + q * pi
+                pr = zr
+                pi = zi
+                zr = nr
+                zi = ni
+                if zr * zr + zi * zi > 4.0:
+                    out[r, k] = i
+                    break
+    return out
+
+
+def _as_complex(c):
+    return np.ascontiguousarray(c, dtype=np.complex128)
+
+
+def juliaSet(c, max_iter):
+    if HAVE_NUMBA:
+        return _julia_nb(_as_complex(c), int(max_iter), JULIA_C.real, JULIA_C.imag)
+    return _julia_np(c, max_iter)
+
+
+def tricorn(c, max_iter):
+    if HAVE_NUMBA:
+        return _tricorn_nb(_as_complex(c), int(max_iter))
+    return _tricorn_np(c, max_iter)
+
+
+def multibrot(c, max_iter):
+    if HAVE_NUMBA:
+        return _multibrot_nb(_as_complex(c), int(max_iter))
+    return _multibrot_np(c, max_iter)
+
+
+def phoenix(c, max_iter):
+    if HAVE_NUMBA:
+        return _phoenix_nb(_as_complex(c), int(max_iter), PHOENIX_P, PHOENIX_Q)
+    return _phoenix_np(c, max_iter)
+
+
 def _ifs_image(step, shape, bounds, max_iter, chains=2000, burn_in=20, max_steps=3000):
     """Rasterise an iterated function system with many parallel chains.
 
@@ -291,8 +462,10 @@ def _ifs_image(step, shape, bounds, max_iter, chains=2000, burn_in=20, max_steps
         visible = (x >= xmin) & (x < xmax) & (y >= ymin) & (y < ymax)
         if not visible.any():
             continue
-        cols = np.minimum(((x[visible] - xmin) * scale_x).astype(np.intp), width - 1)
-        rows = np.minimum(((y[visible] - ymin) * scale_y).astype(np.intp), height - 1)
+        cols = np.minimum(
+            ((x[visible] - xmin) * scale_x).astype(np.intp), width - 1)
+        rows = np.minimum(
+            ((y[visible] - ymin) * scale_y).astype(np.intp), height - 1)
         chunks.append(rows * width + cols)
         collected += cols.size
         if collected >= target:
@@ -337,5 +510,29 @@ def sierpinskiTriangle(c, max_iter, bounds=(0.0, 1.0, 0.0, np.sqrt(3) / 2)):
         # Move halfway toward a randomly chosen vertex.
         v = rng.integers(0, 3, size=x.size)
         return (x + vertices_x[v]) / 2, (y + vertices_y[v]) / 2
+
+    return _ifs_image(step, c.shape, bounds, max_iter)
+
+
+def sierpinskiCarpet(c, max_iter, bounds=(0.0, 1.0, 0.0, 1.0)):
+    """Sierpinski Carpet. ``max_iter`` is the number of points sampled, in thousands."""
+    offsets = np.array([(i / 3, j / 3) for i in range(3)
+                       for j in range(3) if (i, j) != (1, 1)])
+
+    def step(x, y, rng):
+        # Shrink to a third and drop into one of the 8 outer squares.
+        k = rng.integers(0, 8, size=x.size)
+        return x / 3 + offsets[k, 0], y / 3 + offsets[k, 1]
+
+    return _ifs_image(step, c.shape, bounds, max_iter)
+
+
+def dragonCurve(c, max_iter, bounds=(-0.4, 1.25, -0.4, 0.75)):
+    """Heighway Dragon. ``max_iter`` is the number of points sampled, in thousands."""
+
+    def step(x, y, rng):
+        first = rng.random(x.size) < 0.5
+        return (np.where(first, 0.5 * x - 0.5 * y, -0.5 * x - 0.5 * y + 1.0),
+                np.where(first, 0.5 * x + 0.5 * y, 0.5 * x - 0.5 * y))
 
     return _ifs_image(step, c.shape, bounds, max_iter)

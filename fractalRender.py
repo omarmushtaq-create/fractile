@@ -22,12 +22,20 @@ GENERATORS = {
     "Nova Fractal": lambda c, n, bounds: fractals.novaFractal(c, n),
     "Barnsley Fern": fractals.barnsleyFern,
     "Sierpinski Triangle": fractals.sierpinskiTriangle,
+    "Julia Set": lambda c, n, bounds: fractals.juliaSet(c, n),
+    "Tricorn": lambda c, n, bounds: fractals.tricorn(c, n),
+    "Multibrot": lambda c, n, bounds: fractals.multibrot(c, n),
+    "Phoenix": lambda c, n, bounds: fractals.phoenix(c, n),
+    "Sierpinski Carpet": fractals.sierpinskiCarpet,
+    "Dragon Curve": fractals.dragonCurve,
 }
 
 # Each fractal gets a coordinate window that contains its interesting features.
 INITIAL_BOUNDS = {
     "Barnsley Fern": (-2.2, 2.7, 0.0, 10.0),
     "Sierpinski Triangle": (0.0, 1.0, 0.0, np.sqrt(3) / 2),
+    "Sierpinski Carpet": (0.0, 1.0, 0.0, 1.0),
+    "Dragon Curve": (-0.4, 1.25, -0.4, 0.75),
 }
 DEFAULT_BOUNDS = (-2.0, 2.0, -2.0, 2.0)
 
